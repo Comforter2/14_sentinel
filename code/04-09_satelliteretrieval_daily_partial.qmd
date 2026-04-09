@@ -214,13 +214,16 @@ allimages_w$image_w[[1]]
 # EDA  
 Let's visualize one of the images.  
 ```{r}
-
+mapview(allimages_w$image_w[[5]])
 ```
 
 # Wrangling  
 Now let's crop them to the field boundary.  
 ```{r}
-allimages_crop 
+allimages_crop = allimages_w %>%
+  mutate(crop = map(image_w,
+                    ~.x %>%
+                      st_crop(field)))
 
 allimages_crop
 
@@ -233,7 +236,17 @@ Now, let's extract their pixel information.
 
 This will be helpful to assess pixel-level crop growth over time.  
 ```{r}
-pixels 
+pixels = allimages_crop %>%
+  mutate(pixel = map(crop,
+                     ~.x %>%
+                       st_as_sf(as_points = F
+                                ))) %>%
+  unnest(pixel) %>%
+  group_by(date) %>%
+  mutate(pixid = 1:length(gndvi)) %>%
+  ungroup() %>%
+  st_as_sf() %>%
+  dplyr::select(date, pixid, gndvi, geometry)
 
 
 pixels
@@ -242,6 +255,17 @@ pixels
 # Maps by date  
 ```{r}
 library(ggthemes)
+
+pixels %>%
+  ggplot() +
+  geom_sf(aes(fill = gndvi,
+              color = gndvi),
+          size = 1) + #each one of the dates were overlaying each other
+  facet_wrap(~date) +
+  scale_fill_viridis_c(na.value ="transparent") +
+  scale_color_viridis_c(na.value = "transparent") +
+  theme_map() +
+  theme(legend.position = "bottom")
 
 
 ggsave("../output/timeseries.png",
@@ -252,9 +276,28 @@ ggsave("../output/timeseries.png",
 ```
 Notice how we have many images with holes, representing clouds.  
 
+```{r}
+pixels %>%
+  filter(date == "2017-08-18")
+
+pixels %>%
+  group_by(date) %>%
+  tally()
+```
+
+
 # Crop development  
 ```{r}
-pixels 
+pixels %>%
+  filter(pixid %in% sample(1:3702, 10)) %>%
+  #filter(pixid == 2000) %>%
+  ggplot(aes(x = date, y = gndvi,
+             group = pixid)) +
+  geom_line() +
+  geom_point() +
+  scale_x_date(breaks = unique(pixels$date)) +
+  theme(axis.text.x = element_text(angle = 45,
+                                   hjust = 1))
 
 ```
 
