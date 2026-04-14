@@ -239,7 +239,7 @@ This will be helpful to assess pixel-level crop growth over time.
 pixels = allimages_crop %>%
   mutate(pixel = map(crop,
                      ~.x %>%
-                       st_as_sf(as_points = F
+                       st_as_sf(as_points = F, na.rm = F
                                 ))) %>%
   unnest(pixel) %>%
   group_by(date) %>%
@@ -251,6 +251,13 @@ pixels = allimages_crop %>%
 
 pixels
 ```
+
+```{r}
+pixels %>%
+  group_by(date) %>%
+  tally()
+```
+
 
 # Maps by date  
 ```{r}
@@ -288,12 +295,18 @@ pixels %>%
 
 # Crop development  
 ```{r}
+library(ggrepel)
+
 pixels %>%
-  filter(pixid %in% sample(1:3702, 10)) %>%
+  filter(pixid %in% sample(1:6014, 10)) %>%
+  drop_na() %>%
   #filter(pixid == 2000) %>%
   ggplot(aes(x = date, y = gndvi,
-             group = pixid)) +
+             group = pixid,
+             color = factor(pixid))) +
   geom_line() +
+  geom_text_repel(data = ~filter(., date == max(date)),
+                  aes(label = pixid)) +
   geom_point() +
   scale_x_date(breaks = unique(pixels$date)) +
   theme(axis.text.x = element_text(angle = 45,
